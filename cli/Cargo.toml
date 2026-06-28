@@ -1,0 +1,23 @@
+[package]
+name = "congresskit-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "congresskit-cli"
+path = "src/main.rs"
+
+[dependencies]
+congresskit = { path = "../crates/congresskit", version = "0.1.0" }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+reqwest = { workspace = true, features = ["cookies"] }
+sha2 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+zip = { workspace = true }
+futures = { workspace = true }
+tracing = { workspace = true }
+clap = { version = "4", features = ["derive", "env"] }
+pdf-extract = "0.12"

@@ -1,0 +1,49 @@
+name: nightly
+
+# Refresh the current year's House filings. The House Clerk republishes the
+# current year's financial-disclosure ZIP as new PTRs are e-filed, so
+# re-ingesting it refreshes the current year. 09:00 UTC weekdays is after the
+# Clerk's overnight publish. Senate EFD is attempted best-effort and exits
+# cleanly when the host blocks the datacenter IP (see README Coverage).
+
+on:
+  schedule:
+    - cron: "0 9 * * 1-5"
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      # House/Senate fetchers send a bare "<name> <email>" User-Agent. Set the
+      # CONTACT_EMAIL secret; the fallback is a generic placeholder the public
+      # sites accept, so no personal address is baked into a public file.
+      CONGRESSKIT_USER_AGENT: "congresskit ${{ secrets.CONTACT_EMAIL || 'contact@example.com' }}"
+      RUST_LOG: info
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build CLI
+        run: cargo build --release --bin congresskit-cli
+
+      # House by default; Senate is attempted best-effort and self-skips on 403.
+      - name: Refresh data
+        run: ./target/release/congresskit-cli nightly-append
+        continue-on-error: true
+      - name: Regenerate manifest
+        run: ./target/release/congresskit-cli manifest
+
+      - name: Commit if changed
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "chore(data): nightly $(date -u +%Y-%m-%d)"
+            git push
+          fi
